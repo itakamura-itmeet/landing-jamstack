@@ -1,14 +1,26 @@
 // src/middleware.ts
-import { clerkMiddleware } from '@clerk/nextjs/server';
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
 
-export default clerkMiddleware({
-  // rutas públicas
-  publicRoutes: ['/'],
+const isPublic = createRouteMatcher([
+  '/', '/sign-in(.*)', '/sign-up(.*)', '/api/public(.*)',
+]);
+
+export default clerkMiddleware(async (auth, req) => {
+  if (isPublic(req)) return;
+
+  const { userId } = await auth();
+  if (!userId) {
+    const url = new URL('/sign-in', req.url);
+    url.searchParams.set('redirect_url', req.url);
+    return NextResponse.redirect(url);
+  }
 });
 
 export const config = {
   matcher: [
-    // pasa por middleware todo menos estáticos
-    '/((?!_next|static|.*\\..*|favicon.ico).*)',
+    '/((?!.+\\.[\\w]+$|_next).*)',
+    '/',
+    '/(api|trpc)(.*)',
   ],
 };
